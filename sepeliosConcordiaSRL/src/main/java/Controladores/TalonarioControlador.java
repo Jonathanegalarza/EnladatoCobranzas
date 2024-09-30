@@ -49,10 +49,41 @@ public class TalonarioControlador {
         System.err.println("Error de fecha: " + e.getMessage());
     }
 }
+public void generarTalonarioCliente(int idCliente, String ultimoPeriodoPago, java.sql.Date nuevoPeriodo) {
+        try {
+            // Ruta del archivo .jasper (el informe ya compilado)
+            String jasperPath = "src/main/resources/talonarios.jasper";
+
+            // Cargar el informe
+            JasperReport jasperReport = (JasperReport) JRLoader.loadObjectFromFile(jasperPath);
+
+            // Establecer parámetros para el informe
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("idCliente", idCliente);  // Parámetro con el id del cliente
+            parameters.put("ultimoPeriodoPago", nuevoPeriodo);  // Periodo del cliente
+            parameters.put("EspacioEntreTalonarios", 28);  // Espacio entre talonarios (si aplicas espaciado)
+
+            // Llenar el informe con los datos del cliente seleccionado
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, CConection.getConnection());
+
+            // Mostrar el informe en un visor de JasperReports
+            JasperViewer viewer = new JasperViewer(jasperPrint, false);
+            viewer.setVisible(true);
+
+            // Actualizar el último periodo de pago para el cliente seleccionado
+            actualizarUltimoPeriodoPago(idCliente, nuevoPeriodo);
+
+        } catch (JRException e) {
+            System.err.println("Error al generar el informe: " + e.getMessage());
+            e.printStackTrace();
+        } catch (IllegalArgumentException e) {
+            System.err.println("Error de fecha: " + e.getMessage());
+        }
+    }
 
 
 // Método adicional para convertir el periodo de pago en formato MM/yy a java.sql.Date
-private java.sql.Date convertirAPeriodo(String periodoPago) {
+public java.sql.Date convertirAPeriodo(String periodoPago) {
     try {
         // Verificar que el periodo de pago no sea nulo o vacío
         if (periodoPago == null || periodoPago.trim().isEmpty()) {
@@ -68,6 +99,24 @@ private java.sql.Date convertirAPeriodo(String periodoPago) {
         throw new IllegalArgumentException("Formato de fecha inválido. Use 'MM/yy'.", e);
     }
 }
+public boolean actualizarUltimoPeriodoPago(int idCliente, Date nuevoPeriodo) {
+        String sql = "UPDATE clientes SET ultimo_periodo_pago = ? WHERE id_cliente = ?";
+        try (Connection connection = CConection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setDate(1, nuevoPeriodo);  // Establecer el nuevo periodo de pago
+            statement.setInt(2, idCliente);  // Establecer el id del cliente
+
+            // Ejecutar la actualización
+            int filasActualizadas = statement.executeUpdate();
+
+            System.out.println("Último periodo de pago actualizado para el cliente con ID: " + idCliente);
+            return filasActualizadas == 1;  // Devuelve true si se realizó una actualización exitosa
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;  // Devolver false en caso de error
+        }
+    }
 
 // Método para actualizar el último periodo de pago de múltiples clientes usando batch
 public boolean actualizarUltimoPeriodoPago(List<Integer> idClientes, Date nuevoPeriodo) {
